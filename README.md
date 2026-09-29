@@ -132,3 +132,53 @@ Use the preconfigured development administrator credentials to log in:
 
 - Username: `admin`
 - Password: `admin123`
+
+## Deployment (Render Web Service)
+
+This application is ready for deployment as a **Python Web Service** on [Render](https://render.com/).
+
+### Deployment Settings
+
+- **Service Type**: Web Service
+- **Runtime**: `Python 3`
+- **Build Command**: `pip install -r requirements.txt`
+- **Start Command**: `gunicorn app:app`
+
+### Required Environment Variables
+
+Configure these variables in the Render Dashboard (**Dashboard > Your Service > Environment**):
+
+| Variable | Description | Production Guidance |
+| --- | --- | --- |
+| `SECRET_KEY` | Secret key used to cryptographically sign session cookies | **Required**: Set a strong, randomly generated string. Render auto-generates this if using Blueprint (`render.yaml`). |
+| `ADMIN_USERNAME` | Production administrator login username | **Required**: Set a secure production administrative username. |
+| `ADMIN_PASSWORD` | Production administrator login password | **Required**: Set a strong production password. |
+| `PYTHON_VERSION` | Explicit Python version | Optional (recommended `3.12.10`). |
+| `DATABASE_PATH` | Path to the SQLite database file | Optional (defaults to `hospital.db` in application root). |
+
+### SQLite Persistence Limitation on Render Free
+
+> **Important**: The application uses a local SQLite database (`hospital.db`). Render's Free tier uses an **ephemeral filesystem**. When the service restarts, spins down after inactivity, or redeploys, modifications to the SQLite database will be reset to the version in the deployment build.
+> Database tables are created automatically on startup (`CREATE TABLE IF NOT EXISTS`). Local development retains full persistence with the local `hospital.db` file.
+
+### Manual Deploy Steps on Render
+
+1. Log in to [Render](https://dashboard.render.com/).
+2. Click **New +** and select **Web Service**.
+3. Connect your GitHub repository (`hms-project`).
+4. Select **Python 3** as the runtime.
+5. Set the **Build Command** to:
+   ```bash
+   pip install -r requirements.txt
+   ```
+6. Set the **Start Command** to:
+   ```bash
+   gunicorn app:app
+   ```
+7. Under **Environment Variables**, add:
+   - `SECRET_KEY` (or let Render generate one)
+   - `ADMIN_USERNAME`
+   - `ADMIN_PASSWORD`
+8. Click **Create Web Service**.
+
+Alternatively, deploy via **Blueprints** using the included `render.yaml` configuration.

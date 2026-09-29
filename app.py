@@ -14,13 +14,26 @@ from flask import (
 )
 
 app = Flask(__name__)
+
+# Secret key configuration:
+# In production (e.g. Render Web Service), set the SECRET_KEY environment variable.
+# The default fallback value is provided strictly for local development convenience.
 app.config["SECRET_KEY"] = os.environ.get(
     "SECRET_KEY", "dev-hospital-management-system-secret-key"
 )
 
+# Database path configuration:
+# Defaults to hospital.db in the application directory for local development.
+# Can be overridden via the DATABASE_PATH environment variable if needed.
 DATABASE_NAME = "hospital.db"
-DATABASE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), DATABASE_NAME)
+DATABASE_PATH = os.environ.get(
+    "DATABASE_PATH",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), DATABASE_NAME),
+)
 
+# Administrative credentials:
+# In production, set ADMIN_USERNAME and ADMIN_PASSWORD environment variables.
+# The fallback defaults ('admin' / 'admin123') are strictly for local development.
 DEMO_ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
 DEMO_ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
 
@@ -41,6 +54,9 @@ def close_database_connection(exception=None):
 
 
 def initialize_database():
+    database_dir = os.path.dirname(os.path.abspath(DATABASE_PATH))
+    if database_dir:
+        os.makedirs(database_dir, exist_ok=True)
     connection = sqlite3.connect(DATABASE_PATH)
     connection.execute("PRAGMA foreign_keys = ON")
     cursor = connection.cursor()
@@ -1336,4 +1352,5 @@ def delete_bill(bill_id):
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=True)
