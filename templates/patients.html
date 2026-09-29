@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}Patients - Hospital Management System{% endblock %}
+
+{% block header_title %}Patients{% endblock %}
+{% block header_subtitle %}Manage registered hospital patients{% endblock %}
+
+{% block content %}
+<div class="page-toolbar">
+  <form action="{{ url_for('patients') }}" method="GET" class="search-form" role="search">
+    <div class="search-input-group">
+      <input
+        type="text"
+        name="search"
+        class="form-control search-input"
+        placeholder="Search patients by name or phone..."
+        value="{{ search_query }}"
+        aria-label="Search patients"
+      >
+      <button type="submit" class="btn btn-secondary">Search</button>
+      {% if search_query %}
+        <a href="{{ url_for('patients') }}" class="btn btn-outline">Clear</a>
+      {% endif %}
+    </div>
+  </form>
+  <a href="{{ url_for('add_patient') }}" class="btn btn-primary">+ Add Patient</a>
+</div>
+
+{% if patients %}
+  <div class="content-card">
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th scope="col">Name</th>
+            <th scope="col">Age</th>
+            <th scope="col">Gender</th>
+            <th scope="col">Phone</th>
+            <th scope="col">Address</th>
+            <th scope="col">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for patient in patients %}
+            <tr>
+              <td class="font-medium">{{ patient.name }}</td>
+              <td>{{ patient.age }}</td>
+              <td>{{ patient.gender }}</td>
+              <td>{{ patient.phone }}</td>
+              <td>{{ patient.address }}</td>
+              <td>
+                <div class="table-actions">
+                  <a href="{{ url_for('edit_patient', patient_id=patient.patient_id) }}" class="btn btn-sm btn-outline">Edit</a>
+                  <a href="{{ url_for('delete_patient', patient_id=patient.patient_id) }}" class="btn btn-sm btn-danger">Delete</a>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% else %}
+  <div class="content-card">
+    <div class="empty-state">
+      <div class="empty-state-icon">
+        <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+      </div>
+      {% if search_query %}
+        <h3 class="empty-state-title">No Matching Patients Found</h3>
+        <p class="empty-state-text">
+          No patient records matched your search query "{{ search_query }}". Try checking for spelling errors or search using a different name or phone number.
+        </p>
+        <div style="margin-top: 1.25rem;">
+          <a href="{{ url_for('patients') }}" class="btn btn-outline">Clear Search</a>
+        </div>
+      {% else %}
+        <h3 class="empty-state-title">No Patients Registered</h3>
+        <p class="empty-state-text">
+          There are currently no patient records stored in the hospital database. Add the first patient to get started.
+        </p>
+        <div style="margin-top: 1.25rem;">
+          <a href="{{ url_for('add_patient') }}" class="btn btn-primary">+ Add Patient</a>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+{% endif %}
+{% endblock %}

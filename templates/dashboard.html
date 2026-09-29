@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Hospital Management System{% endblock %}
+
+{% block header_title %}Hospital Dashboard{% endblock %}
+{% block header_subtitle %}System Overview and Quick Statistics{% endblock %}
+
+{% block content %}
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-icon-wrapper">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+        <circle cx="9" cy="7" r="4"/>
+        <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+      </svg>
+    </div>
+    <div class="stat-details">
+      <span class="stat-label">Total Patients</span>
+      <span class="stat-value">{{ statistics.total_patients }}</span>
+      <span class="stat-note">Patients Table Ready</span>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-icon-wrapper">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+        <circle cx="12" cy="7" r="4"/>
+      </svg>
+    </div>
+    <div class="stat-details">
+      <span class="stat-label">Total Doctors</span>
+      <span class="stat-value">{{ statistics.total_doctors }}</span>
+      <span class="stat-note">Doctors Table Ready</span>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-icon-wrapper">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+        <line x1="16" y1="2" x2="16" y2="6"/>
+        <line x1="8" y1="2" x2="8" y2="6"/>
+        <line x1="3" y1="10" x2="21" y2="10"/>
+      </svg>
+    </div>
+    <div class="stat-details">
+      <span class="stat-label">Appointments</span>
+      <span class="stat-value">{{ statistics.total_appointments }}</span>
+      <span class="stat-note">Appointments Table Ready</span>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-icon-wrapper">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="2" y="5" width="20" height="14" rx="2"/>
+        <line x1="2" y1="10" x2="22" y2="10"/>
+      </svg>
+    </div>
+    <div class="stat-details">
+      <span class="stat-label">Total Bills</span>
+      <span class="stat-value">{{ statistics.total_bills }}</span>
+      <span class="stat-note">Bills Table Ready</span>
+    </div>
+  </div>
+</div>
+
+<div class="content-card">
+  <div class="content-card-header">
+    <div class="card-title-group">
+      <h2 class="card-title">Recent Appointments</h2>
+      <p class="card-description">Overview of upcoming and recent patient appointments</p>
+    </div>
+    <span class="badge badge-info">Foundation Setup Phase</span>
+  </div>
+
+  <div class="content-card-body">
+    {% if recent_appointments %}
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Patient</th>
+              <th>Doctor</th>
+              <th>Specialization</th>
+              <th>Date</th>
+              <th>Time</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for appointment in recent_appointments %}
+              <tr>
+                <td>{{ appointment.patient_name }}</td>
+                <td>{{ appointment.doctor_name }}</td>
+                <td>{{ appointment.doctor_specialization }}</td>
+                <td>{{ appointment.appointment_date }}</td>
+                <td>{{ appointment.appointment_time }}</td>
+                <td>
+                  <span class="badge badge-primary">{{ appointment.status }}</span>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <div class="empty-state-icon">
+          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+        </div>
+        <h3 class="empty-state-title">No Appointments Recorded</h3>
+        <p class="empty-state-text">
+          The database schema for appointments is established. Appointment records will appear here once the Appointments CRUD module is integrated in the next phase.
+        </p>
+      </div>
+
+      <div style="margin-top: 1.5rem; border-top: 1px solid var(--border-color); padding-top: 1.25rem;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
+          <span style="font-size: 0.8125rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">
+            Demonstration Table Preview (Sample Layout)
+          </span>
+          <span class="badge badge-secondary">Sample Demo Rows</span>
+        </div>
+
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Patient</th>
+                <th>Doctor</th>
+                <th>Specialization</th>
+                <th>Date</th>
+                <th>Time</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>John Doe (Demo)</td>
+                <td>Dr. Sarah Jenkins</td>
+                <td>Cardiology</td>
+                <td>2026-10-01</td>
+                <td>10:00 AM</td>
+                <td><span class="badge badge-success">Confirmed</span></td>
+              </tr>
+              <tr>
+                <td>Emily Smith (Demo)</td>
+                <td>Dr. Robert Taylor</td>
+                <td>Pediatrics</td>
+                <td>2026-10-01</td>
+                <td>11:30 AM</td>
+                <td><span class="badge badge-warning">Pending</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

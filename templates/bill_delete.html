@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}Delete Bill - Hospital Management System{% endblock %}
+
+{% block header_title %}Delete Bill{% endblock %}
+{% block header_subtitle %}Confirm permanent deletion of bill record{% endblock %}
+
+{% block content %}
+<div class="confirmation-card">
+  <div class="content-card">
+    <div class="content-card-header">
+      <div class="card-title-group">
+        <h2 class="card-title">Confirm Bill Deletion</h2>
+        <p class="card-description">Please review the details below before proceeding</p>
+      </div>
+    </div>
+
+    <div class="content-card-body">
+      <div class="alert alert-error confirmation-alert">
+        <span>Warning: This action is permanent and cannot be undone. The billing record will be removed from the system.</span>
+      </div>
+
+      <div class="detail-list">
+        <div class="detail-row">
+          <span class="detail-label">Patient</span>
+          <span class="detail-value">{{ bill.patient_name }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Total Amount</span>
+          <span class="detail-value font-medium">&#8377;{{ "%.2f"|format(bill.total_amount) }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Bill Date</span>
+          <span class="detail-value">{{ bill.bill_date }}</span>
+        </div>
+      </div>
+
+      <form action="{{ url_for('delete_bill', bill_id=bill.bill_id) }}" method="POST">
+        <div class="form-actions">
+          <button type="submit" class="btn btn-danger">Confirm Delete</button>
+          <a href="{{ url_for('billing') }}" class="btn btn-outline">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

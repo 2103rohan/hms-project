@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}{{ form_title }} - Hospital Management System{% endblock %}
+
+{% block header_title %}{{ form_title }}{% endblock %}
+{% block header_subtitle %}{{ form_subtitle }}{% endblock %}
+
+{% block content %}
+<div class="form-card-container">
+  <div class="content-card">
+    <div class="content-card-header">
+      <div class="card-title-group">
+        <h2 class="card-title">{{ form_title }}</h2>
+        <p class="card-description">Please fill in all appointment scheduling details</p>
+      </div>
+    </div>
+
+    <div class="content-card-body">
+      <form action="{{ form_action }}" method="POST">
+        <div class="form-group">
+          <label for="patient_id" class="form-label">Patient</label>
+          <select id="patient_id" name="patient_id" class="form-control" required>
+            <option value="" disabled {% if not form_data or not form_data.patient_id %}selected{% endif %}>Select registered patient</option>
+            {% for patient in patients %}
+              <option value="{{ patient.patient_id }}" {% if form_data and form_data.patient_id|string == patient.patient_id|string %}selected{% endif %}>
+                {{ patient.name }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="doctor_id" class="form-label">Doctor</label>
+          <select id="doctor_id" name="doctor_id" class="form-control" required>
+            <option value="" disabled {% if not form_data or not form_data.doctor_id %}selected{% endif %}>Select registered doctor</option>
+            {% for doctor in doctors %}
+              <option value="{{ doctor.doctor_id }}" {% if form_data and form_data.doctor_id|string == doctor.doctor_id|string %}selected{% endif %}>
+                {{ doctor.name }} — {{ doctor.specialization }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label for="appointment_date" class="form-label">Appointment Date</label>
+            <input
+              type="date"
+              id="appointment_date"
+              name="appointment_date"
+              class="form-control"
+              value="{{ form_data.appointment_date if form_data else '' }}"
+              required
+            >
+          </div>
+
+          <div class="form-group">
+            <label for="appointment_time" class="form-label">Appointment Time</label>
+            <input
+              type="time"
+              id="appointment_time"
+              name="appointment_time"
+              class="form-control"
+              value="{{ form_data.appointment_time if form_data else '' }}"
+              required
+            >
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="status" class="form-label">Status</label>
+          <select id="status" name="status" class="form-control" required>
+            <option value="Scheduled" {% if not form_data or form_data.status == 'Scheduled' %}selected{% endif %}>Scheduled</option>
+            <option value="Completed" {% if form_data and form_data.status == 'Completed' %}selected{% endif %}>Completed</option>
+            <option value="Cancelled" {% if form_data and form_data.status == 'Cancelled' %}selected{% endif %}>Cancelled</option>
+          </select>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">{{ submit_button_text }}</button>
+          <a href="{{ url_for('appointments') }}" class="btn btn-outline">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

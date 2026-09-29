@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}Doctors - Hospital Management System{% endblock %}
+
+{% block header_title %}Doctors{% endblock %}
+{% block header_subtitle %}Manage hospital doctors{% endblock %}
+
+{% block content %}
+<div class="page-toolbar">
+  <form action="{{ url_for('doctors') }}" method="GET" class="search-form" role="search">
+    <div class="search-input-group">
+      <input
+        type="text"
+        name="search"
+        class="form-control search-input"
+        placeholder="Search doctors by name, specialization, or phone..."
+        value="{{ search_query }}"
+        aria-label="Search doctors"
+      >
+      <button type="submit" class="btn btn-secondary">Search</button>
+      {% if search_query %}
+        <a href="{{ url_for('doctors') }}" class="btn btn-outline">Clear</a>
+      {% endif %}
+    </div>
+  </form>
+  <a href="{{ url_for('add_doctor') }}" class="btn btn-primary">+ Add Doctor</a>
+</div>
+
+{% if doctors %}
+  <div class="content-card">
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th scope="col">Name</th>
+            <th scope="col">Specialization</th>
+            <th scope="col">Phone</th>
+            <th scope="col">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for doctor in doctors %}
+            <tr>
+              <td class="font-medium">{{ doctor.name }}</td>
+              <td><span class="badge badge-info">{{ doctor.specialization }}</span></td>
+              <td>{{ doctor.phone }}</td>
+              <td>
+                <div class="table-actions">
+                  <a href="{{ url_for('edit_doctor', doctor_id=doctor.doctor_id) }}" class="btn btn-sm btn-outline">Edit</a>
+                  <a href="{{ url_for('delete_doctor', doctor_id=doctor.doctor_id) }}" class="btn btn-sm btn-danger">Delete</a>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% else %}
+  <div class="content-card">
+    <div class="empty-state">
+      <div class="empty-state-icon">
+        <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+          <circle cx="12" cy="7" r="4"/>
+        </svg>
+      </div>
+      {% if search_query %}
+        <h3 class="empty-state-title">No Matching Doctors Found</h3>
+        <p class="empty-state-text">
+          No doctor records matched your search query "{{ search_query }}". Try checking for spelling errors or search using a different name, specialization, or phone number.
+        </p>
+        <div style="margin-top: 1.25rem;">
+          <a href="{{ url_for('doctors') }}" class="btn btn-outline">Clear Search</a>
+        </div>
+      {% else %}
+        <h3 class="empty-state-title">No Doctors Registered</h3>
+        <p class="empty-state-text">
+          There are currently no doctor records stored in the hospital database. Add the first doctor to get started.
+        </p>
+        <div style="margin-top: 1.25rem;">
+          <a href="{{ url_for('add_doctor') }}" class="btn btn-primary">+ Add Doctor</a>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+{% endif %}
+{% endblock %}

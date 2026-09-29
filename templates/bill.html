@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}Patient Bill - Hospital Management System{% endblock %}
+
+{% block header_title %}Patient Bill{% endblock %}
+{% block header_subtitle %}Detailed consultation invoice{% endblock %}
+
+{% block content %}
+<div class="bill-page-container">
+  <div class="bill-actions-bar">
+    <div class="bill-actions-left">
+      <a href="{{ url_for('billing') }}" class="btn btn-outline">&larr; Back to Bills</a>
+    </div>
+    <div class="bill-actions-right">
+      <button type="button" class="btn btn-primary" onclick="window.print()">Print Bill</button>
+      <a href="{{ url_for('delete_bill', bill_id=bill.bill_id) }}" class="btn btn-danger">Delete</a>
+    </div>
+  </div>
+
+  <div class="bill-sheet">
+    <div class="bill-sheet-header">
+      <div class="bill-brand">
+        <img src="{{ url_for('static', filename='images/hospital-logo.png') }}" alt="Hospital Logo" class="bill-logo">
+        <div class="bill-brand-info">
+          <h1 class="bill-hospital-name">Hospital Management System</h1>
+          <p class="bill-hospital-sub">Healthcare Administration and Consultation Services</p>
+        </div>
+      </div>
+      <div class="bill-meta-badge">
+        <span class="bill-sheet-tag">Official Invoice</span>
+      </div>
+    </div>
+
+    <hr class="bill-divider">
+
+    <div class="bill-info-grid">
+      <div class="bill-info-col">
+        <div class="bill-info-item">
+          <span class="bill-info-label">Bill Date</span>
+          <span class="bill-info-value">{{ bill.bill_date }}</span>
+        </div>
+      </div>
+      <div class="bill-info-col">
+        <div class="bill-info-item">
+          <span class="bill-info-label">Patient Name</span>
+          <span class="bill-info-value font-medium">{{ bill.patient_name }}</span>
+        </div>
+        {% if bill.patient_phone %}
+          <div class="bill-info-item">
+            <span class="bill-info-label">Contact Phone</span>
+            <span class="bill-info-value">{{ bill.patient_phone }}</span>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="bill-table-container">
+      <table class="bill-table">
+        <thead>
+          <tr>
+            <th scope="col" class="bill-th-item">Description</th>
+            <th scope="col" class="bill-th-amount">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Consultation Fee</td>
+            <td class="bill-td-amount">&#8377;{{ "%.2f"|format(bill.consultation_fee) }}</td>
+          </tr>
+          <tr>
+            <td>Medicine Fee</td>
+            <td class="bill-td-amount">&#8377;{{ "%.2f"|format(bill.medicine_fee) }}</td>
+          </tr>
+          <tr>
+            <td>Other Charges</td>
+            <td class="bill-td-amount">&#8377;{{ "%.2f"|format(bill.other_charges) }}</td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr class="bill-total-row">
+            <td class="bill-total-label">Total Amount</td>
+            <td class="bill-total-amount">&#8377;{{ "%.2f"|format(bill.total_amount) }}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <div class="bill-footer">
+      <p class="bill-footer-note">This is a computer-generated invoice for hospital consultation and medical services.</p>
+    </div>
+  </div>
+</div>
+{% endblock %}

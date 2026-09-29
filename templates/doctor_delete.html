@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}Delete Doctor - Hospital Management System{% endblock %}
+
+{% block header_title %}Delete Doctor{% endblock %}
+{% block header_subtitle %}Confirm permanent deletion of doctor record{% endblock %}
+
+{% block content %}
+<div class="confirmation-card">
+  <div class="content-card">
+    <div class="content-card-header">
+      <div class="card-title-group">
+        <h2 class="card-title">Confirm Doctor Deletion</h2>
+        <p class="card-description">Please review the details below before proceeding</p>
+      </div>
+    </div>
+
+    <div class="content-card-body">
+      <div class="alert alert-error confirmation-alert">
+        <span>Warning: This action is permanent and cannot be undone. The doctor profile will be removed from the system.</span>
+      </div>
+
+      <div class="detail-list">
+        <div class="detail-row">
+          <span class="detail-label">Full Name</span>
+          <span class="detail-value">{{ doctor.name }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Specialization</span>
+          <span class="detail-value"><span class="badge badge-info">{{ doctor.specialization }}</span></span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Contact Phone</span>
+          <span class="detail-value">{{ doctor.phone }}</span>
+        </div>
+      </div>
+
+      <form action="{{ url_for('delete_doctor', doctor_id=doctor.doctor_id) }}" method="POST">
+        <div class="form-actions">
+          <button type="submit" class="btn btn-danger">Confirm Delete</button>
+          <a href="{{ url_for('doctors') }}" class="btn btn-outline">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
