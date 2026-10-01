@@ -532,6 +532,32 @@ def add_patient():
             )
 
         database = get_database_connection()
+
+        # Prevent duplicate patient registration (same name and phone number)
+        existing_patient = database.execute(
+            """
+            SELECT patient_id, name, phone
+            FROM patients
+            WHERE LOWER(TRIM(name)) = LOWER(TRIM(?))
+              AND TRIM(phone) = TRIM(?)
+            """,
+            (cleaned_data["name"], cleaned_data["phone"]),
+        ).fetchone()
+
+        if existing_patient:
+            flash(
+                f"A patient with name '{cleaned_data['name']}' and contact phone '{cleaned_data['phone']}' is already registered.",
+                "error",
+            )
+            return render_template(
+                "patient_form.html",
+                form_title="Register New Patient",
+                form_subtitle="Add a new patient record to the hospital database",
+                form_action=url_for("add_patient"),
+                submit_button_text="Register Patient",
+                form_data=form_data,
+            )
+
         database.execute(
             """
             INSERT INTO patients (name, age, gender, phone, address)
@@ -597,6 +623,32 @@ def edit_patient(patient_id):
 
         if not is_valid:
             flash(error_message, "error")
+            return render_template(
+                "patient_form.html",
+                form_title="Edit Patient Details",
+                form_subtitle="Update registered patient details",
+                form_action=url_for("edit_patient", patient_id=patient_id),
+                submit_button_text="Save Changes",
+                form_data=form_data,
+            )
+
+        # Prevent updating to another existing patient's details
+        duplicate_patient = database.execute(
+            """
+            SELECT patient_id, name, phone
+            FROM patients
+            WHERE LOWER(TRIM(name)) = LOWER(TRIM(?))
+              AND TRIM(phone) = TRIM(?)
+              AND patient_id != ?
+            """,
+            (cleaned_data["name"], cleaned_data["phone"], patient_id),
+        ).fetchone()
+
+        if duplicate_patient:
+            flash(
+                f"Another patient with name '{cleaned_data['name']}' and contact phone '{cleaned_data['phone']}' is already registered.",
+                "error",
+            )
             return render_template(
                 "patient_form.html",
                 form_title="Edit Patient Details",
@@ -757,6 +809,54 @@ def add_doctor():
             )
 
         database = get_database_connection()
+
+        duplicate_phone = database.execute(
+            """
+            SELECT doctor_id, name, phone
+            FROM doctors
+            WHERE TRIM(phone) = TRIM(?)
+            """,
+            (cleaned_data["phone"],),
+        ).fetchone()
+
+        if duplicate_phone:
+            flash(
+                f"A doctor with contact phone '{cleaned_data['phone']}' is already registered ({duplicate_phone['name']}).",
+                "error",
+            )
+            return render_template(
+                "doctor_form.html",
+                form_title="Add New Doctor",
+                form_subtitle="Register a new medical practitioner",
+                form_action=url_for("add_doctor"),
+                submit_button_text="Register Doctor",
+                form_data=form_data,
+            )
+
+        duplicate_specialist = database.execute(
+            """
+            SELECT doctor_id, name, specialization
+            FROM doctors
+            WHERE LOWER(TRIM(name)) = LOWER(TRIM(?))
+              AND LOWER(TRIM(specialization)) = LOWER(TRIM(?))
+            """,
+            (cleaned_data["name"], cleaned_data["specialization"]),
+        ).fetchone()
+
+        if duplicate_specialist:
+            flash(
+                f"A doctor named '{cleaned_data['name']}' with specialization '{cleaned_data['specialization']}' is already registered.",
+                "error",
+            )
+            return render_template(
+                "doctor_form.html",
+                form_title="Add New Doctor",
+                form_subtitle="Register a new medical practitioner",
+                form_action=url_for("add_doctor"),
+                submit_button_text="Register Doctor",
+                form_data=form_data,
+            )
+
         database.execute(
             """
             INSERT INTO doctors (name, specialization, phone)
@@ -816,6 +916,57 @@ def edit_doctor(doctor_id):
 
         if not is_valid:
             flash(error_message, "error")
+            return render_template(
+                "doctor_form.html",
+                form_title="Edit Doctor Details",
+                form_subtitle="Update medical practitioner profile",
+                form_action=url_for("edit_doctor", doctor_id=doctor_id),
+                submit_button_text="Save Changes",
+                form_data=form_data,
+            )
+
+        # Prevent updating to another existing doctor's phone number
+        duplicate_phone = database.execute(
+            """
+            SELECT doctor_id, name, phone
+            FROM doctors
+            WHERE TRIM(phone) = TRIM(?)
+              AND doctor_id != ?
+            """,
+            (cleaned_data["phone"], doctor_id),
+        ).fetchone()
+
+        if duplicate_phone:
+            flash(
+                f"Another doctor with contact phone '{cleaned_data['phone']}' is already registered ({duplicate_phone['name']}).",
+                "error",
+            )
+            return render_template(
+                "doctor_form.html",
+                form_title="Edit Doctor Details",
+                form_subtitle="Update medical practitioner profile",
+                form_action=url_for("edit_doctor", doctor_id=doctor_id),
+                submit_button_text="Save Changes",
+                form_data=form_data,
+            )
+
+        # Prevent updating to another existing doctor's name and specialization
+        duplicate_specialist = database.execute(
+            """
+            SELECT doctor_id, name, specialization
+            FROM doctors
+            WHERE LOWER(TRIM(name)) = LOWER(TRIM(?))
+              AND LOWER(TRIM(specialization)) = LOWER(TRIM(?))
+              AND doctor_id != ?
+            """,
+            (cleaned_data["name"], cleaned_data["specialization"], doctor_id),
+        ).fetchone()
+
+        if duplicate_specialist:
+            flash(
+                f"Another doctor named '{cleaned_data['name']}' with specialization '{cleaned_data['specialization']}' is already registered.",
+                "error",
+            )
             return render_template(
                 "doctor_form.html",
                 form_title="Edit Doctor Details",
