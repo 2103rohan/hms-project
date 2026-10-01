@@ -280,6 +280,31 @@ def login_required(view_function):
     return decorated_function
 
 
+@app.route("/api/health")
+def api_health():
+    diag = {
+        "status": "online",
+        "use_postgres": USE_POSTGRES,
+        "psycopg2_available": PSYCOPG2_AVAILABLE,
+        "database_url_present": bool(DATABASE_URL),
+    }
+    if DATABASE_URL:
+        diag["database_url_masked"] = re.sub(r":([^:@]+)@", ":****@", DATABASE_URL)
+    try:
+        db = get_database_connection()
+        rec = db.execute("SELECT COUNT(*) AS c FROM patients").fetchone()
+        diag["db_status"] = "connected"
+        diag["patient_count"] = rec["c"] if rec else 0
+    except Exception as e:
+        import traceback
+
+        diag["db_status"] = "error"
+        diag["error_type"] = type(e).__name__
+        diag["error_message"] = str(e)
+        diag["traceback"] = traceback.format_exc()
+    return diag
+
+
 @app.route("/")
 def index():
     if "user" in session:
