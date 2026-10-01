@@ -51,12 +51,28 @@ DEMO_ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
 
 
 def normalize_postgres_url(raw_url):
-    url = raw_url
+    url = raw_url.strip()
     if url.startswith("postgres://"):
         url = url.replace("postgres://", "postgresql://", 1)
-    if "localhost" not in url and "127.0.0.1" not in url and "sslmode=" not in url:
-        separator = "&" if "?" in url else "?"
-        url = f"{url}{separator}sslmode=require"
+
+    last_slash_idx = url.rfind("/")
+    if last_slash_idx != -1:
+        base_part = url[:last_slash_idx]
+        db_and_query = url[last_slash_idx + 1 :]
+
+        if "&" in db_and_query and "?" not in db_and_query:
+            db_and_query = db_and_query.replace("&", "?", 1)
+
+        if (
+            "localhost" not in base_part
+            and "127.0.0.1" not in base_part
+            and "sslmode=" not in db_and_query
+        ):
+            separator = "&" if "?" in db_and_query else "?"
+            db_and_query = f"{db_and_query}{separator}sslmode=require"
+
+        url = f"{base_part}/{db_and_query}"
+
     return url
 
 
