@@ -1,4 +1,5 @@
 import os
+import re
 import sqlite3
 from datetime import date, datetime
 from functools import wraps
@@ -13,6 +14,14 @@ from flask import (
     url_for,
 )
 
+try:
+    import psycopg2
+    import psycopg2.extras
+
+    PSYCOPG2_AVAILABLE = True
+except ImportError:
+    PSYCOPG2_AVAILABLE = False
+
 app = Flask(__name__)
 
 # Secret key configuration:
@@ -22,9 +31,12 @@ app.config["SECRET_KEY"] = os.environ.get(
     "SECRET_KEY", "dev-hospital-management-system-secret-key"
 )
 
-# Database path configuration:
-# Defaults to hospital.db in the application directory for local development.
-# Can be overridden via the DATABASE_PATH environment variable if needed.
+# Database configuration:
+# If DATABASE_URL is set (e.g. from Neon, Supabase, or Render PostgreSQL), the app
+# runs on PostgreSQL with persistent cloud storage. Otherwise, it defaults to local SQLite.
+DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
+USE_POSTGRES = bool(DATABASE_URL)
+
 DATABASE_NAME = "hospital.db"
 DATABASE_PATH = os.environ.get(
     "DATABASE_PATH",
@@ -38,11 +50,96 @@ DEMO_ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
 DEMO_ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
 
 
+def normalize_postgres_url(raw_url):
+    url = raw_url
+    if url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql://", 1)
+    if "localhost" not in url and "127.0.0.1" not in url and "sslmode=" not in url:
+        separator = "&" if "?" in url else "?"
+        url = f"{url}{separator}sslmode=require"
+    return url
+
+
+def get_raw_postgres_connection():
+    if not PSYCOPG2_AVAILABLE:
+        raise ImportError(
+            "psycopg2 is required when DATABASE_URL is set. "
+            "Please run: pip install psycopg2-binary"
+        )
+    return psycopg2.connect(
+        normalize_postgres_url(DATABASE_URL),
+        cursor_factory=psycopg2.extras.RealDictCursor,
+    )
+
+
+class PostgresCursorWrapper:
+    def __init__(self, cursor):
+        self._cursor = cursor
+        self.lastrowid = None
+
+    def fetchone(self):
+        if self._cursor.description is None:
+            return None
+        row = self._cursor.fetchone()
+        if row is not None and isinstance(row, dict):
+            for key, value in row.items():
+                if key.endswith("_id") or key == "id":
+                    self.lastrowid = value
+                    break
+        return row
+
+    def fetchall(self):
+        if self._cursor.description is None:
+            return []
+        return self._cursor.fetchall()
+
+    @property
+    def rowcount(self):
+        return self._cursor.rowcount
+
+    def __iter__(self):
+        if self._cursor.description is None:
+            return iter(())
+        return iter(self._cursor)
+
+
+class PostgresConnectionWrapper:
+    def __init__(self, connection):
+        self._connection = connection
+
+    def execute(self, sql, parameters=None):
+        # Translate LIKE to case-insensitive ILIKE for Postgres parity with SQLite
+        adapted_sql = re.sub(r"\bLIKE\b", "ILIKE", sql, flags=re.IGNORECASE)
+        # Convert parameter placeholders from SQLite '?' to Postgres '%s'
+        adapted_sql = adapted_sql.replace("?", "%s")
+
+        cursor = self._connection.cursor()
+        if parameters:
+            cursor.execute(adapted_sql, parameters)
+        else:
+            cursor.execute(adapted_sql)
+
+        return PostgresCursorWrapper(cursor)
+
+    def commit(self):
+        self._connection.commit()
+
+    def rollback(self):
+        self._connection.rollback()
+
+    def close(self):
+        self._connection.close()
+
+
 def get_database_connection():
     if "database" not in g:
-        g.database = sqlite3.connect(DATABASE_PATH)
-        g.database.row_factory = sqlite3.Row
-        g.database.execute("PRAGMA foreign_keys = ON")
+        if USE_POSTGRES:
+            raw_conn = get_raw_postgres_connection()
+            g.database = PostgresConnectionWrapper(raw_conn)
+        else:
+            g.database = sqlite3.connect(DATABASE_PATH)
+            g.database.row_factory = sqlite3.Row
+            g.database.execute("PRAGMA foreign_keys = ON")
     return g.database
 
 
@@ -50,60 +147,121 @@ def get_database_connection():
 def close_database_connection(exception=None):
     database = g.pop("database", None)
     if database is not None:
+        if exception:
+            try:
+                database.rollback()
+            except Exception:
+                pass
         database.close()
 
 
 def initialize_database():
-    database_dir = os.path.dirname(os.path.abspath(DATABASE_PATH))
-    if database_dir:
-        os.makedirs(database_dir, exist_ok=True)
-    connection = sqlite3.connect(DATABASE_PATH)
-    connection.execute("PRAGMA foreign_keys = ON")
-    cursor = connection.cursor()
-    cursor.executescript("""
-        CREATE TABLE IF NOT EXISTS patients (
-            patient_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            age INTEGER NOT NULL,
-            gender TEXT NOT NULL,
-            phone TEXT NOT NULL,
-            address TEXT NOT NULL
-        );
+    if USE_POSTGRES:
+        conn = get_raw_postgres_connection()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS patients (
+                        patient_id SERIAL PRIMARY KEY,
+                        name VARCHAR(255) NOT NULL,
+                        age INTEGER NOT NULL,
+                        gender VARCHAR(50) NOT NULL,
+                        phone VARCHAR(50) NOT NULL,
+                        address TEXT NOT NULL
+                    );
 
-        CREATE TABLE IF NOT EXISTS doctors (
-            doctor_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            specialization TEXT NOT NULL,
-            phone TEXT NOT NULL
-        );
+                    CREATE TABLE IF NOT EXISTS doctors (
+                        doctor_id SERIAL PRIMARY KEY,
+                        name VARCHAR(255) NOT NULL,
+                        specialization VARCHAR(255) NOT NULL,
+                        phone VARCHAR(50) NOT NULL
+                    );
 
-        CREATE TABLE IF NOT EXISTS appointments (
-            appointment_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            patient_id INTEGER NOT NULL,
-            doctor_id INTEGER NOT NULL,
-            appointment_date TEXT NOT NULL,
-            appointment_time TEXT NOT NULL,
-            status TEXT NOT NULL,
-            FOREIGN KEY (patient_id) REFERENCES patients (patient_id),
-            FOREIGN KEY (doctor_id) REFERENCES doctors (doctor_id)
-        );
+                    CREATE TABLE IF NOT EXISTS appointments (
+                        appointment_id SERIAL PRIMARY KEY,
+                        patient_id INTEGER NOT NULL REFERENCES patients (patient_id) ON DELETE CASCADE,
+                        doctor_id INTEGER NOT NULL REFERENCES doctors (doctor_id) ON DELETE CASCADE,
+                        appointment_date VARCHAR(50) NOT NULL,
+                        appointment_time VARCHAR(50) NOT NULL,
+                        status VARCHAR(50) NOT NULL
+                    );
 
-        CREATE TABLE IF NOT EXISTS bills (
-            bill_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            patient_id INTEGER NOT NULL,
-            consultation_fee REAL NOT NULL,
-            medicine_fee REAL NOT NULL,
-            other_charges REAL NOT NULL,
-            total_amount REAL NOT NULL,
-            bill_date TEXT NOT NULL,
-            FOREIGN KEY (patient_id) REFERENCES patients (patient_id)
-        );
-        """)
-    connection.commit()
-    connection.close()
+                    CREATE TABLE IF NOT EXISTS bills (
+                        bill_id SERIAL PRIMARY KEY,
+                        patient_id INTEGER NOT NULL REFERENCES patients (patient_id) ON DELETE CASCADE,
+                        consultation_fee NUMERIC(10, 2) NOT NULL,
+                        medicine_fee NUMERIC(10, 2) NOT NULL,
+                        other_charges NUMERIC(10, 2) NOT NULL,
+                        total_amount NUMERIC(10, 2) NOT NULL,
+                        bill_date VARCHAR(50) NOT NULL
+                    );
+                """)
+            conn.commit()
+            print("PostgreSQL tables verified / initialized successfully.")
+        finally:
+            conn.close()
+    else:
+        database_dir = os.path.dirname(os.path.abspath(DATABASE_PATH))
+        if database_dir:
+            os.makedirs(database_dir, exist_ok=True)
+        connection = sqlite3.connect(DATABASE_PATH)
+        connection.execute("PRAGMA foreign_keys = ON")
+        cursor = connection.cursor()
+        cursor.executescript("""
+            CREATE TABLE IF NOT EXISTS patients (
+                patient_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                age INTEGER NOT NULL,
+                gender TEXT NOT NULL,
+                phone TEXT NOT NULL,
+                address TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS doctors (
+                doctor_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                specialization TEXT NOT NULL,
+                phone TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS appointments (
+                appointment_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                patient_id INTEGER NOT NULL,
+                doctor_id INTEGER NOT NULL,
+                appointment_date TEXT NOT NULL,
+                appointment_time TEXT NOT NULL,
+                status TEXT NOT NULL,
+                FOREIGN KEY (patient_id) REFERENCES patients (patient_id) ON DELETE CASCADE,
+                FOREIGN KEY (doctor_id) REFERENCES doctors (doctor_id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS bills (
+                bill_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                patient_id INTEGER NOT NULL,
+                consultation_fee REAL NOT NULL,
+                medicine_fee REAL NOT NULL,
+                other_charges REAL NOT NULL,
+                total_amount REAL NOT NULL,
+                bill_date TEXT NOT NULL,
+                FOREIGN KEY (patient_id) REFERENCES patients (patient_id) ON DELETE CASCADE
+            );
+            """)
+        connection.commit()
+        connection.close()
+        print("SQLite tables verified / initialized successfully.")
 
 
-initialize_database()
+try:
+    initialize_database()
+except Exception as init_err:
+    print(f"Warning during database initialization: {init_err}")
+
+
+@app.context_processor
+def inject_system_context():
+    return {
+        "database_backend": "PostgreSQL" if USE_POSTGRES else "SQLite",
+    }
 
 
 @app.cli.command("init-db")
@@ -1260,6 +1418,7 @@ def add_bill():
                 bill_date
             )
             VALUES (?, ?, ?, ?, ?, ?)
+            RETURNING bill_id
             """,
             (
                 cleaned_data["patient_id"],
@@ -1270,8 +1429,9 @@ def add_bill():
                 bill_date,
             ),
         )
+        returned_row = cursor.fetchone()
         database.commit()
-        new_bill_id = cursor.lastrowid
+        new_bill_id = returned_row["bill_id"] if returned_row else cursor.lastrowid
         flash("Bill generated successfully.", "success")
         return redirect(url_for("view_bill", bill_id=new_bill_id))
 
@@ -1349,6 +1509,137 @@ def delete_bill(bill_id):
         return redirect(url_for("billing"))
 
     return render_template("bill_delete.html", bill=bill_record)
+
+
+@app.cli.command("migrate-sqlite-to-postgres")
+def migrate_sqlite_to_postgres():
+    """Migrate all records from local SQLite (hospital.db) to PostgreSQL."""
+    if not USE_POSTGRES:
+        print(
+            "ERROR: DATABASE_URL is not set. Please set the DATABASE_URL environment "
+            "variable before running this command."
+        )
+        return
+
+    print("Ensuring target PostgreSQL tables exist...")
+    initialize_database()
+
+    print(f"Reading records from local SQLite database: {DATABASE_PATH}")
+    sqlite_conn = sqlite3.connect(DATABASE_PATH)
+    sqlite_conn.row_factory = sqlite3.Row
+
+    print("Connecting to PostgreSQL...")
+    pg_conn = get_raw_postgres_connection()
+
+    try:
+        with pg_conn.cursor() as cur:
+            # 1. Patients
+            patients = sqlite_conn.execute(
+                "SELECT * FROM patients ORDER BY patient_id"
+            ).fetchall()
+            for p in patients:
+                cur.execute(
+                    """
+                    INSERT INTO patients (patient_id, name, age, gender, phone, address)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (patient_id) DO UPDATE
+                    SET name = EXCLUDED.name, age = EXCLUDED.age, gender = EXCLUDED.gender,
+                        phone = EXCLUDED.phone, address = EXCLUDED.address
+                    """,
+                    (
+                        p["patient_id"],
+                        p["name"],
+                        p["age"],
+                        p["gender"],
+                        p["phone"],
+                        p["address"],
+                    ),
+                )
+            print(f"Migrated {len(patients)} patients.")
+
+            # 2. Doctors
+            doctors = sqlite_conn.execute(
+                "SELECT * FROM doctors ORDER BY doctor_id"
+            ).fetchall()
+            for d in doctors:
+                cur.execute(
+                    """
+                    INSERT INTO doctors (doctor_id, name, specialization, phone)
+                    VALUES (%s, %s, %s, %s)
+                    ON CONFLICT (doctor_id) DO UPDATE
+                    SET name = EXCLUDED.name, specialization = EXCLUDED.specialization, phone = EXCLUDED.phone
+                    """,
+                    (d["doctor_id"], d["name"], d["specialization"], d["phone"]),
+                )
+            print(f"Migrated {len(doctors)} doctors.")
+
+            # 3. Appointments
+            appointments = sqlite_conn.execute(
+                "SELECT * FROM appointments ORDER BY appointment_id"
+            ).fetchall()
+            for a in appointments:
+                cur.execute(
+                    """
+                    INSERT INTO appointments (appointment_id, patient_id, doctor_id, appointment_date, appointment_time, status)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (appointment_id) DO UPDATE
+                    SET patient_id = EXCLUDED.patient_id, doctor_id = EXCLUDED.doctor_id,
+                        appointment_date = EXCLUDED.appointment_date, appointment_time = EXCLUDED.appointment_time,
+                        status = EXCLUDED.status
+                    """,
+                    (
+                        a["appointment_id"],
+                        a["patient_id"],
+                        a["doctor_id"],
+                        a["appointment_date"],
+                        a["appointment_time"],
+                        a["status"],
+                    ),
+                )
+            print(f"Migrated {len(appointments)} appointments.")
+
+            # 4. Bills
+            bills = sqlite_conn.execute(
+                "SELECT * FROM bills ORDER BY bill_id"
+            ).fetchall()
+            for b in bills:
+                cur.execute(
+                    """
+                    INSERT INTO bills (bill_id, patient_id, consultation_fee, medicine_fee, other_charges, total_amount, bill_date)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (bill_id) DO UPDATE
+                    SET patient_id = EXCLUDED.patient_id, consultation_fee = EXCLUDED.consultation_fee,
+                        medicine_fee = EXCLUDED.medicine_fee, other_charges = EXCLUDED.other_charges,
+                        total_amount = EXCLUDED.total_amount, bill_date = EXCLUDED.bill_date
+                    """,
+                    (
+                        b["bill_id"],
+                        b["patient_id"],
+                        b["consultation_fee"],
+                        b["medicine_fee"],
+                        b["other_charges"],
+                        b["total_amount"],
+                        b["bill_date"],
+                    ),
+                )
+            print(f"Migrated {len(bills)} bills.")
+
+            # Sync sequence counters for auto-increment in Postgres
+            for table, pk in [
+                ("patients", "patient_id"),
+                ("doctors", "doctor_id"),
+                ("appointments", "appointment_id"),
+                ("bills", "bill_id"),
+            ]:
+                cur.execute(
+                    f"SELECT setval(pg_get_serial_sequence('{table}', '{pk}'), COALESCE((SELECT MAX({pk}) FROM {table}), 1));"
+                )
+
+        pg_conn.commit()
+        print("Migration from SQLite to PostgreSQL completed successfully!")
+    finally:
+        sqlite_conn.close()
+        pg_conn.close()
 
 
 if __name__ == "__main__":

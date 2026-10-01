@@ -150,16 +150,36 @@ Configure these variables in the Render Dashboard (**Dashboard > Your Service > 
 
 | Variable | Description | Production Guidance |
 | --- | --- | --- |
+| `DATABASE_URL` | Cloud PostgreSQL connection string | **Recommended for Render Free**: Set this to a free cloud PostgreSQL URI (e.g. from [Neon](https://neon.tech/) or [Supabase](https://supabase.com/)) to prevent data loss when Render restarts. When unset, the application defaults to local SQLite (`hospital.db`). |
 | `SECRET_KEY` | Secret key used to cryptographically sign session cookies | **Required**: Set a strong, randomly generated string. Render auto-generates this if using Blueprint (`render.yaml`). |
 | `ADMIN_USERNAME` | Production administrator login username | **Required**: Set a secure production administrative username. |
 | `ADMIN_PASSWORD` | Production administrator login password | **Required**: Set a strong production password. |
 | `PYTHON_VERSION` | Explicit Python version | Optional (recommended `3.12.10`). |
-| `DATABASE_PATH` | Path to the SQLite database file | Optional (defaults to `hospital.db` in application root). |
+| `DATABASE_PATH` | Path to the SQLite database file | Optional (defaults to `hospital.db` in application root, used only when `DATABASE_URL` is omitted). |
 
-### SQLite Persistence Limitation on Render Free
+### Preventing Data Loss on Render Free Tier (Cloud PostgreSQL)
 
-> **Important**: The application uses a local SQLite database (`hospital.db`). Render's Free tier uses an **ephemeral filesystem**. When the service restarts, spins down after inactivity, or redeploys, modifications to the SQLite database will be reset to the version in the deployment build.
-> Database tables are created automatically on startup (`CREATE TABLE IF NOT EXISTS`). Local development retains full persistence with the local `hospital.db` file.
+Render's Free Web Service tier uses an **ephemeral disk**. When the free service spins down due to 15 minutes of inactivity or restarts, any writes to a local SQLite file (`hospital.db`) are wiped.
+
+To give your project **permanent, zero-loss persistence** for free:
+
+1. **Create a Free Cloud PostgreSQL Database** (Recommended: [Neon.tech](https://neon.tech/) or [Supabase.com](https://supabase.com/)):
+   - Sign up for a free account at [Neon](https://neon.tech/) (no credit card required).
+   - Create a new project (e.g., `hospital-db`).
+   - Copy your PostgreSQL connection URI (e.g. `postgresql://user:password@ep-xyz.neon.tech/neondb?sslmode=require`).
+2. **Add `DATABASE_URL` to Render**:
+   - Go to your Render Dashboard &rarr; **hospital-management-system** &rarr; **Environment**.
+   - Add an environment variable:
+     - **Key**: `DATABASE_URL`
+     - **Value**: *(paste your copied PostgreSQL connection URI)*
+   - Click **Save Changes**. Render will automatically redeploy the service.
+   - Tables are auto-created on boot (`CREATE TABLE IF NOT EXISTS`). The top-right status badge in the app will now display **PostgreSQL Connected**.
+3. **Migrate Existing Local Data to Cloud PostgreSQL (Optional)**:
+   - If you have existing records in `hospital.db` that you want to transfer to your cloud database, run:
+     ```bash
+     DATABASE_URL="your-postgres-connection-uri" flask migrate-sqlite-to-postgres
+     ```
+   - All patients, doctors, appointments, and bills will be copied with sequence counters synced.
 
 ### Manual Deploy Steps on Render
 
@@ -176,6 +196,7 @@ Configure these variables in the Render Dashboard (**Dashboard > Your Service > 
    gunicorn app:app
    ```
 7. Under **Environment Variables**, add:
+   - `DATABASE_URL` (your Neon or Supabase PostgreSQL URI)
    - `SECRET_KEY` (or let Render generate one)
    - `ADMIN_USERNAME`
    - `ADMIN_PASSWORD`
